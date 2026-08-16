@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Postgres Task Manager</title>
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <!-- HTMX JSON Encoding Extension -->
+    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --border-color: #cccccc;
+            --input-bg: #ffffff;
+            --button-bg: #eeeeee;
+            --button-hover: #dddddd;
+            --completed-color: #888888;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1a1a1a;
+                --text-color: #f0f0f0;
+                --border-color: #444444;
+                --input-bg: #2a2a2a;
+                --button-bg: #333333;
+                --button-hover: #444444;
+                --completed-color: #666666;
+            }
+        }
+
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            max-width: 600px; 
+            margin: 2rem auto; 
+            padding: 0 1rem; 
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .task { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 0.75rem 0.5rem; 
+            border-bottom: 1px solid var(--border-color); 
+            align-items: center; 
+        }
+        .completed span { color: var(--completed-color); }
+        form { margin-bottom: 2rem; display: flex; gap: 0.5rem; }
+        input[type="text"] { 
+            flex-grow: 1; 
+            padding: 0.5rem; 
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        button { 
+            padding: 0.5rem 1rem; 
+            cursor: pointer; 
+            background-color: var(--button-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: var(--button-hover);
+        }
+    </style>
+</head>
+<body hx-ext="json-enc">
+
+    <h1>Thick DB Task Manager</h1>
+
+    <form hx-post="/rpc/add_task" hx-target="#task-list">
+        <input type="text" name="p_title" placeholder="New task..." required>
+        <button type="submit">Add Task</button>
+    </form>
+
+    <div id="task-list" 
+         hx-post="/rpc/render_task_list" 
+         hx-trigger="load, every 2s">
+        Loading tasks...
+    </div>
+
+    <!-- Configure HTMX to talk to PostgREST -->
+    <script>
+        document.body.addEventListener('htmx:configRequest', function(evt) {
+            if (evt.detail.path.startsWith('/rpc/')) {
+                evt.detail.path = 'http://localhost:3000' + evt.detail.path;
+            }
+            // Ask PostgREST for a single scalar JSON object
+            evt.detail.headers['Accept'] = 'application/vnd.pgrst.object';
+        });
+
+        // PostgREST returns a scalar text as a JSON string (with quotes).
+        // We need to parse it back into a normal string before HTMX injects it into the DOM.
+        document.body.addEventListener('htmx:beforeSwap', function(evt) {
+            try {
+                if (evt.detail.serverResponse.startsWith('"')) {
+                    evt.detail.serverResponse = JSON.parse(evt.detail.serverResponse);
+                }
+            } catch(e) {}
+        });
+    </script>
+</body>
+</html>
